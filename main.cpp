@@ -39,15 +39,14 @@ int main() {
     }
 
     // Download the video
-    std::string command = GetCurrentDirectoryA() + "/youtube-dl.exe -o" + destination + "/video.mp4" + " " + url;
+    std::string command = GetCurrentDirectoryA() + "/youtube-dl.exe --ignore-errors -o \"" + destination + "/%(title)s.%(ext)s\" " + url;
     system(command.c_str());
 
     // Check if the video is downloaded
-    if (command.find(command) == std::string::npos) {
-        std::cout << "Download failed" << std::endl;
-        return 0;
+    if (destination.find(destination) == std::string::npos) {
+        std::cout << "Video downloaded" << std::endl;
     } else {
-        std::cout << "Download success" << std::endl;
+        std::cout << "Video not downloaded" << std::endl;
     }
 
     return 0;
