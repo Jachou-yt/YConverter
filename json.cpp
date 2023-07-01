@@ -102,6 +102,36 @@ std::ifstream file("info.json");
     }
 }
 
-void modify() {
+void modify(const std::string& path, const std::string& destination, const std::string& verbose) {
+    std::string file = "info.json";
 
+    std::ifstream jsonFile(file);
+
+    if (!jsonFile.is_open()) {
+        std::cerr << "The file can't be open." << std::endl;
+        return;
+    }
+
+    std::string jsonContent((std::istreambuf_iterator<char>(jsonFile)), std::istreambuf_iterator<char>());
+
+    jsonFile.close();
+
+    nlohmann::json jsonObj = nlohmann::json::parse(jsonContent);
+
+    jsonObj["destination"] = destination;
+    jsonObj["path"] = path;
+    jsonObj["verbose"] = verbose;
+
+    std::ofstream jsonFile2(file);
+
+    if (!jsonFile2.is_open()) {
+        std::cerr << "The file can't be open." << std::endl;
+        return;
+    }
+
+    jsonFile2 << jsonObj.dump(4);
+
+    jsonFile2.close();
+
+    std::cout << "Json file has been writed." << std::endl;
 }
