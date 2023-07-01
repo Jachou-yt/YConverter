@@ -3,15 +3,19 @@
 #include <exception>
 #include <Windows.h>
 #include <conio.h>
-#include "json.cpp"
+#include <thread>
+#include "utils/json.cpp"
+#include "utils/downloader.cpp"
+
 
 std::string GetCurrentDirectory()
 {
-    char buffer[MAX_PATH];
-    GetModuleFileNameA(nullptr, buffer, MAX_PATH);
-    std::string::size_type pos = std::string(buffer).find_last_of("\\/");
+    std::string buffer(MAX_PATH, '\0');
+    GetModuleFileNameA(nullptr, &buffer[0], MAX_PATH);
+    std::string::size_type pos = buffer.find_last_of("\\/");
+    std::string currentDirectory = buffer.substr(0, pos);
 
-    return std::string(buffer).substr(0, pos);
+    return currentDirectory;
 }
 
 
@@ -27,16 +31,18 @@ int main() {
     std::string verboseString;
     bool verbose;
 
-    std::cout << " __    __  ____                                                __                     \n"
-                 "/\\ \\  /\\ \\/\\  _`\\                                             /\\ \\__                  \n"
-                 "\\ `\\`\\\\/'/\\ \\ \\/\\_\\    ___     ___     __  __     __    _ __  \\ \\ ,_\\     __    _ __  \n"
-                 " `\\ `\\ /'  \\ \\ \\/_/_  / __`\\ /' _ `\\  /\\ \\/\\ \\  /'__`\\ /\\`'__\\ \\ \\ \\/   /'__`\\ /\\`'__\\\n"
-                 "   `\\ \\ \\   \\ \\ \\L\\ \\/\\ \\L\\ \\/\\ \\/\\ \\ \\ \\ \\_/ |/\\  __/ \\ \\ \\/   \\ \\ \\_ /\\  __/ \\ \\ \\/ \n"
-                 "     \\ \\_\\   \\ \\____/\\ \\____/\\ \\_\\ \\_\\ \\ \\___/ \\ \\____\\ \\ \\_\\    \\ \\__\\\\ \\____\\ \\ \\_\\ \n"
-                 "      \\/_/    \\/___/  \\/___/  \\/_/\\/_/  \\/__/   \\/____/  \\/_/     \\/__/ \\/____/  \\/_/ \n"
-                 "                                                                                      \n"
-                 "                                                                                      \n"
-                 "" << std::endl;
+    std::string logo =
+            " __    __  ____                                                __                     \n"
+            "/\\ \\  /\\ \\/\\  _`\\                                             /\\ \\__                  \n"
+            "\\ `\\`\\\\/'/\\ \\ \\/\\_\\    ___     ___     __  __     __    _ __  \\ \\ ,_\\     __    _ __  \n"
+            " `\\ `\\ /'  \\ \\ \\/_/_  / __`\\ /' _ `\\  /\\ \\/\\ \\  /'__`\\ /\\`'__\\ \\ \\ \\/   /'__`\\ /\\`'__\\\n"
+            "   `\\ \\ \\   \\ \\ \\L\\ \\/\\ \\L\\ \\/\\ \\/\\ \\ \\ \\ \\_/ |/\\  __/ \\ \\ \\/   \\ \\ \\_ /\\  __/ \\ \\ \\/ \n"
+            "     \\ \\_\\   \\ \\____/\\ \\____/\\ \\_\\ \\_\\ \\ \\___/ \\ \\____\\ \\ \\_\\    \\ \\__\\\\ \\____\\ \\ \\_\\ \n"
+            "      \\/_/    \\/___/  \\/___/  \\/_/\\/_/  \\/__/   \\/____/  \\/_/     \\/__/ \\/____/  \\/_/ \n"
+            "                                                                                      \n"
+            "                                                                                      \n";
+
+    std::cout << logo << std::endl;
 
     if (!initiated()) {
         createJson();
@@ -50,10 +56,29 @@ int main() {
         initJson();
     }
 
+    std::ifstream jsonFile(file);
+
+    if (!jsonFile.is_open()) {
+        std::cerr << "The file can't be open." << std::endl;
+        return 0;
+    }
+
+    std::string jsonContent((std::istreambuf_iterator<char>(jsonFile)), std::istreambuf_iterator<char>());
+
+    jsonFile.close();
+
+    nlohmann::json jsonObj = nlohmann::json::parse(jsonContent);
+
+    destination = jsonObj["destination"];
+
+    verboseString = jsonObj["verbose"];
+    path = jsonObj["path"];
+
     while (true) {
         std::cout << "[1] Download a video" << std::endl;
-        std::cout << "[2] Modify json information" << std::endl;
-        std::cout << "[3] Exit" << std::endl;
+        std::cout << "[2] Download multiple video" << std::endl;
+        std::cout << "[3] Modify json information" << std::endl;
+        std::cout << "[4] Exit" << std::endl;
         std::cout << "Choice : ";
         std::getline(std::cin, choice);
 
@@ -67,22 +92,6 @@ int main() {
             } else {
                 std::cout << "Valid URL" << std::endl;
 
-                std::ifstream jsonFile(file);
-
-                if (!jsonFile.is_open()) {
-                    std::cerr << "The file can't be open." << std::endl;
-                    return 0;
-                }
-
-                std::string jsonContent((std::istreambuf_iterator<char>(jsonFile)), std::istreambuf_iterator<char>());
-
-                jsonFile.close();
-
-                nlohmann::json jsonObj = nlohmann::json::parse(jsonContent);
-
-                destination = jsonObj["destination"];
-
-
                 if (destination.find(destination) == std::string::npos) {
                     std::cout << "Invalid file destination" << std::endl;
                     std::cout << "Please modify the json file" << std::endl;
@@ -92,40 +101,49 @@ int main() {
                     std::cout << "Valid file destination" << std::endl;
                 }
 
-                verboseString = jsonObj["verbose"];
-                path = jsonObj["path"];
-
                 if (verboseString == "true") {
                     verbose = true;
                 } else {
                     verbose = false;
                 }
 
-                // Download the video
-                try {
-                    std::string command = path + "/yt-dlp_min.exe --ignore-errors -o \"" + destination + "/%(title)s.%(ext)s\" " + url;
+                downloadVideo(path, destination, url, verbose);
 
-                    if (verbose) {
-                        std::cout << "Downloading..." << std::endl;
-                        command = command + " --verbose";
-                        system(command.c_str());
-                    } else {
-                        std::cout << "Downloading..." << std::endl;
-                        system(command.c_str());
-                    }
-                } catch (std::exception& e) {
-                    std::cout << "Error : " << e.what() << std::endl;
-                    std::cout << "Press any key to continue..." << std::endl;
-                    getch();
-                }
-
-                std::cout << "Download completed in the folder " + destination << std::endl;
+                std::string downloadMessage = "Download completed in the folder " + destination;
+                std::cout << downloadMessage << std::endl;
                 std::cout << "Press any key to continue..." << std::endl;
                 getch();
-
             }
 
         } else if (choice == "2") {
+            std::string urlMaxString = "y";
+            std::string urls[100];
+            int length = 0;
+
+            while (urlMaxString == "y") {
+
+                if (length == 100) {
+                    std::cout << "You can't add more than 100 videos" << std::endl;
+                    break;
+                }
+
+                std::cout << "Enter a url of a  video : ";
+                std::getline(std::cin, url);
+                if (url.find(url) == std::string::npos) {
+                    std::cout << "Invalid URL" << std::endl;
+                    return 0;
+                }
+
+                urls[length] = url;
+                length++;
+
+                std::cout << "Do you want to add another video ? (y/n) : ";
+                std::getline(std::cin, urlMaxString);
+            }
+
+            downloadMultipleVideo(path, destination, urls, length, verbose);
+
+        } else if (choice == "3") {
             std::cout << "Change the directoy wehre the videos are downloaded : ";
             std::getline(std::cin, destination);
 
@@ -142,7 +160,14 @@ int main() {
             }
 
             modify(path, destination, verboseString);
-        } else if (choice == "3") {
+
+            std::cout << "Json file modified" << std::endl;
+            std::cout << "Please restart the program" << std::endl;
+            std::cout << "Press any key to continue..." << std::endl;
+            getch();
+
+            return 0;
+        } else if (choice == "4") {
             return 0;
         } else {
             std::cout << "Invalid choice" << std::endl;

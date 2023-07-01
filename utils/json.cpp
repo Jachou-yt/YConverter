@@ -6,7 +6,7 @@
 #include <fstream>
 #include <filesystem>
 #include <iostream>
-#include "nlohmann/json.hpp"
+#include "../nlohmann/json.hpp"
 
 void createJson() {
     std::ofstream json("info.json");
