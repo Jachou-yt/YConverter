@@ -1,11 +1,10 @@
 #include <iostream>
 #include <string>
-#include <exception>
 #include <Windows.h>
 #include <conio.h>
-#include <thread>
 #include "utils/json.cpp"
 #include "utils/downloader.cpp"
+#include "utils/updater.cpp"
 
 
 std::string GetCurrentDirectory()
