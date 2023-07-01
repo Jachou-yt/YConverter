@@ -2,6 +2,8 @@
 #include <string>
 #include <exception>
 #include <Windows.h>
+#include "json.cpp"
+#include <conio.h>
 
 std::string GetCurrentDirectory()
 {
@@ -12,14 +14,26 @@ std::string GetCurrentDirectory()
     return std::string(buffer).substr(0, pos);
 }
 
+
 int main() {
     std::string url;
     bool logs = false;
 
+    if (!initiated()) {
+        createJson();
+
+        std::cout << "Json file created" << std::endl;
+    }
+
+    std::string file = "info.json";
+
+    if (!fileContainsCharacter(file) || jsonIsNull()) {
+        initJson();
+    }
+
     std::cout << "Please enter youtube URL : ";
     std::getline(std::cin, url);
 
-    // Check if the URL is valid
     if (url.find(url) == std::string::npos) {
         std::cout << "Invalid URL" << std::endl;
         return 0;
@@ -27,12 +41,22 @@ int main() {
         std::cout << "Valid URL" << std::endl;
     }
 
-    // File destination
-    std::string destination;
-    std::cout << "Please enter a file destination : ";
-    std::getline(std::cin, destination);
+    std::ifstream jsonFile(file);
 
-    // Check if the file destination is valid
+    if (!jsonFile.is_open()) {
+        std::cerr << "The file can't be open." << std::endl;
+        return 0;
+    }
+
+    std::string jsonContent((std::istreambuf_iterator<char>(jsonFile)), std::istreambuf_iterator<char>());
+
+    jsonFile.close();
+
+    nlohmann::json jsonObj = nlohmann::json::parse(jsonContent);
+
+    std::string destination = jsonObj["destination"];
+
+
     if (destination.find(destination) == std::string::npos) {
         std::cout << "Invalid file destination" << std::endl;
         return 0;
@@ -40,28 +64,25 @@ int main() {
         std::cout << "Valid file destination" << std::endl;
     }
 
-    std::string verbose;
-    std::cout << "Do you want to see the logs ? (y/n) : ";
-    std::getline(std::cin, verbose);
+    std::string verboseString = jsonObj["verbose"];
+    std::string path = jsonObj["path"];
+    bool verbose;
 
-    if (verbose == "y") {
-        logs = true;
-    } else if (verbose == "n") {
-        logs = false;
+    if (verboseString == "true") {
+        verbose = true;
     } else {
-        std::cout << "Invalid answer" << std::endl;
-        return 0;
+        verbose = false;
     }
 
     // Download the video
     try {
-        if (logs) {
+        if (verbose) {
             std::cout << "Downloading..." << std::endl;
-            std::string command = GetCurrentDirectoryA() + "/yt-dlp_min.exe --verbose --ignore-errors -o \"" + destination + "/%(title)s.%(ext)s\" " + url;
+            std::string command = path + "/yt-dlp_min.exe --verbose --ignore-errors -o \"" + destination + "/%(title)s.%(ext)s\" " + url;
             system(command.c_str());
         } else {
             std::cout << "Downloading..." << std::endl;
-            std::string command = GetCurrentDirectoryA() + "/yt-dlp_min.exe --ignore-errors -o \"" + destination + "/%(title)s.%(ext)s\" " + url;
+            std::string command = path + "/yt-dlp_min.exe --ignore-errors -o \"" + destination + "/%(title)s.%(ext)s\" " + url;
             system(command.c_str());
         }
     } catch (std::exception& e) {
