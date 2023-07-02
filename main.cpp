@@ -7,6 +7,7 @@
 #include "utils/updater.cpp"
 
 
+
 std::string GetCurrentDirectory()
 {
     std::string buffer(MAX_PATH, '\0');
